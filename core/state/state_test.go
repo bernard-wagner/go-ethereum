@@ -29,7 +29,7 @@ import (
 
 type stateTest struct {
 	db    ethdb.Database
-	state *StateDB
+	state *stateDB
 }
 
 func newStateTest() *stateTest {

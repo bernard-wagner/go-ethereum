@@ -76,7 +76,7 @@ func TestIntermediateLeaks(t *testing.T) {
 	transState, _ := New(common.Hash{}, NewDatabase(transDb), nil)
 	finalState, _ := New(common.Hash{}, NewDatabase(finalDb), nil)
 
-	modify := func(state *StateDB, addr common.Address, i, tweak byte) {
+	modify := func(state *stateDB, addr common.Address, i, tweak byte) {
 		state.SetBalance(addr, big.NewInt(int64(11*i)+int64(tweak)))
 		state.SetNonce(addr, uint64(42*i+tweak))
 		if i%2 == 0 {
@@ -180,7 +180,7 @@ func TestCopy(t *testing.T) {
 	}
 
 	// Finalise the changes on all concurrently
-	finalise := func(wg *sync.WaitGroup, db *StateDB) {
+	finalise := func(wg *sync.WaitGroup, db *stateDB) {
 		defer wg.Done()
 		db.Finalise(true)
 	}
@@ -241,7 +241,7 @@ type snapshotTest struct {
 
 type testAction struct {
 	name   string
-	fn     func(testAction, *StateDB)
+	fn     func(testAction, *stateDB)
 	args   []int64
 	noAddr bool
 }
@@ -251,28 +251,28 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 	actions := []testAction{
 		{
 			name: "SetBalance",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction, s *stateDB) {
 				s.SetBalance(addr, big.NewInt(a.args[0]))
 			},
 			args: make([]int64, 1),
 		},
 		{
 			name: "AddBalance",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction, s *stateDB) {
 				s.AddBalance(addr, big.NewInt(a.args[0]))
 			},
 			args: make([]int64, 1),
 		},
 		{
 			name: "SetNonce",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction, s *stateDB) {
 				s.SetNonce(addr, uint64(a.args[0]))
 			},
 			args: make([]int64, 1),
 		},
 		{
 			name: "SetState",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction, s *stateDB) {
 				var key, val common.Hash
 				binary.BigEndian.PutUint16(key[:], uint16(a.args[0]))
 				binary.BigEndian.PutUint16(val[:], uint16(a.args[1]))
@@ -282,7 +282,7 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 		},
 		{
 			name: "SetCode",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction, s *stateDB) {
 				code := make([]byte, 16)
 				binary.BigEndian.PutUint64(code, uint64(a.args[0]))
 				binary.BigEndian.PutUint64(code[8:], uint64(a.args[1]))
@@ -292,19 +292,19 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 		},
 		{
 			name: "CreateAccount",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction, s *stateDB) {
 				s.CreateAccount(addr)
 			},
 		},
 		{
 			name: "Suicide",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction, s *stateDB) {
 				s.Suicide(addr)
 			},
 		},
 		{
 			name: "AddRefund",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction, s *stateDB) {
 				s.AddRefund(uint64(a.args[0]))
 			},
 			args:   make([]int64, 1),
@@ -312,7 +312,7 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 		},
 		{
 			name: "AddLog",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction, s *stateDB) {
 				data := make([]byte, 2)
 				binary.BigEndian.PutUint16(data, uint16(a.args[0]))
 				s.AddLog(&types.Log{Address: addr, Data: data})
@@ -321,7 +321,7 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 		},
 		{
 			name: "AddPreimage",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction, s *stateDB) {
 				preimage := []byte{1}
 				hash := common.BytesToHash(preimage)
 				s.AddPreimage(hash, preimage)
@@ -330,13 +330,13 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 		},
 		{
 			name: "AddAddressToAccessList",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction, s *stateDB) {
 				s.AddAddressToAccessList(addr)
 			},
 		},
 		{
 			name: "AddSlotToAccessList",
-			fn: func(a testAction, s *StateDB) {
+			fn: func(a testAction, s *stateDB) {
 				s.AddSlotToAccessList(addr,
 					common.Hash{byte(a.args[0])})
 			},
@@ -427,7 +427,7 @@ func (test *snapshotTest) run() bool {
 }
 
 // checkEqual checks that methods of state and checkstate return the same values.
-func (test *snapshotTest) checkEqual(state, checkstate *StateDB) error {
+func (test *snapshotTest) checkEqual(state, checkstate *stateDB) error {
 	for _, addr := range test.addrs {
 		var err error
 		checkeq := func(op string, a, b interface{}) bool {

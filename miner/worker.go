@@ -81,12 +81,12 @@ const (
 type environment struct {
 	signer types.Signer
 
-	state     *state.StateDB // apply state changes here
-	ancestors mapset.Set     // ancestor set (used for checking uncle parent validity)
-	family    mapset.Set     // family set (used for checking uncle invalidity)
-	uncles    mapset.Set     // uncle set
-	tcount    int            // tx count in cycle
-	gasPool   *core.GasPool  // available gas used to pack transactions
+	state     state.StateDB // apply state changes here
+	ancestors mapset.Set    // ancestor set (used for checking uncle parent validity)
+	family    mapset.Set    // family set (used for checking uncle invalidity)
+	uncles    mapset.Set    // uncle set
+	tcount    int           // tx count in cycle
+	gasPool   *core.GasPool // available gas used to pack transactions
 
 	header   *types.Header
 	txs      []*types.Transaction
@@ -96,7 +96,7 @@ type environment struct {
 // task contains all information for consensus engine sealing and result submitting.
 type task struct {
 	receipts  []*types.Receipt
-	state     *state.StateDB
+	state     state.StateDB
 	block     *types.Block
 	createdAt time.Time
 }
@@ -164,7 +164,7 @@ type worker struct {
 
 	snapshotMu    sync.RWMutex // The lock used to protect the block snapshot and state snapshot
 	snapshotBlock *types.Block
-	snapshotState *state.StateDB
+	snapshotState state.StateDB
 
 	// atomic status counters
 	running int32 // The indicator whether the consensus engine is running or not.
@@ -266,7 +266,7 @@ func (w *worker) enablePreseal() {
 }
 
 // pending returns the pending state and corresponding block.
-func (w *worker) pending() (*types.Block, *state.StateDB) {
+func (w *worker) pending() (*types.Block, state.StateDB) {
 	// return a snapshot to avoid contention on currentMu mutex
 	w.snapshotMu.RLock()
 	defer w.snapshotMu.RUnlock()

@@ -66,7 +66,7 @@ type stateObject struct {
 	address  common.Address
 	addrHash common.Hash // hash of ethereum address of the account
 	data     Account
-	db       *StateDB
+	db       *stateDB
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -107,7 +107,7 @@ type Account struct {
 }
 
 // newObject creates a state object.
-func newObject(db *StateDB, address common.Address, data Account) *stateObject {
+func newObject(db *stateDB, address common.Address, data Account) *stateObject {
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
 	}
@@ -223,7 +223,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	}
 	if s.db.snap != nil {
 		if metrics.EnabledExpensive {
-			meter = &s.db.SnapshotStorageReads
+			meter = &s.db.metrics.SnapshotStorageReads
 		}
 		// If the object was destructed in *this* block (and potentially resurrected),
 		// the storage has been cleared out, and we should *not* consult the previous
@@ -245,7 +245,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 			readStart = time.Now()
 		}
 		if metrics.EnabledExpensive {
-			meter = &s.db.StorageReads
+			meter = &s.db.metrics.StorageReads
 		}
 		if enc, err = s.getTrie(db).TryGet(key.Bytes()); err != nil {
 			s.setError(err)
@@ -335,7 +335,7 @@ func (s *stateObject) updateTrie(db Database) Trie {
 	}
 	// Track the amount of time wasted on updating the storage trie
 	if metrics.EnabledExpensive {
-		defer func(start time.Time) { s.db.StorageUpdates += time.Since(start) }(time.Now())
+		defer func(start time.Time) { s.db.metrics.StorageUpdates += time.Since(start) }(time.Now())
 	}
 	// The snapshot storage map for the object
 	var storage map[common.Hash][]byte
@@ -389,7 +389,7 @@ func (s *stateObject) updateRoot(db Database) {
 	}
 	// Track the amount of time wasted on hashing the storage trie
 	if metrics.EnabledExpensive {
-		defer func(start time.Time) { s.db.StorageHashes += time.Since(start) }(time.Now())
+		defer func(start time.Time) { s.db.metrics.StorageHashes += time.Since(start) }(time.Now())
 	}
 	s.data.Root = s.trie.Hash()
 }
@@ -406,7 +406,7 @@ func (s *stateObject) CommitTrie(db Database) error {
 	}
 	// Track the amount of time wasted on committing the storage trie
 	if metrics.EnabledExpensive {
-		defer func(start time.Time) { s.db.StorageCommits += time.Since(start) }(time.Now())
+		defer func(start time.Time) { s.db.metrics.StorageCommits += time.Since(start) }(time.Now())
 	}
 	root, err := s.trie.Commit(nil)
 	if err == nil {
@@ -453,7 +453,7 @@ func (s *stateObject) setBalance(amount *big.Int) {
 // Return the gas back to the origin. Used by the Virtual machine or Closures
 func (s *stateObject) ReturnGas(gas *big.Int) {}
 
-func (s *stateObject) deepCopy(db *StateDB) *stateObject {
+func (s *stateObject) deepCopy(db *stateDB) *stateObject {
 	stateObject := newObject(db, s.address, s.data)
 	if s.trie != nil {
 		stateObject.trie = db.db.CopyTrie(s.trie)

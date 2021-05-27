@@ -682,12 +682,12 @@ func (bc *BlockChain) Processor() Processor {
 }
 
 // State returns a new mutable state based on the current HEAD block.
-func (bc *BlockChain) State() (*state.StateDB, error) {
+func (bc *BlockChain) State() (state.StateDB, error) {
 	return bc.StateAt(bc.CurrentBlock().Root())
 }
 
 // StateAt returns a new mutable state based on a particular point in time.
-func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
+func (bc *BlockChain) StateAt(root common.Hash) (state.StateDB, error) {
 	return state.New(root, bc.stateCache, bc.snaps)
 }
 
@@ -1436,7 +1436,7 @@ func (bc *BlockChain) writeKnownBlock(block *types.Block) error {
 }
 
 // WriteBlockWithState writes the block and all associated state to the database.
-func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
+func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
 	bc.chainmu.Lock()
 	defer bc.chainmu.Unlock()
 
@@ -1445,7 +1445,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 
 // writeBlockWithState writes the block and all associated state to the database,
 // but is expects the chain mutex to be held.
-func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
+func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -1766,7 +1766,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		return it.index, err
 	}
 	// No validation errors for the first block (or chain prefix skipped)
-	var activeState *state.StateDB
+	var activeState state.StateDB
 	defer func() {
 		// The chain importer is starting and stopping trie prefetchers. If a bad
 		// block or other error is hit however, an early return may not properly
@@ -1848,7 +1848,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 			if followup, err := it.peek(); followup != nil && err == nil {
 				throwaway, _ := state.New(parent.Root, bc.stateCache, bc.snaps)
 
-				go func(start time.Time, followup *types.Block, throwaway *state.StateDB, interrupt *uint32) {
+				go func(start time.Time, followup *types.Block, throwaway state.StateDB, interrupt *uint32) {
 					bc.prefetcher.Prefetch(followup, throwaway, bc.vmConfig, &followupInterrupt)
 
 					blockPrefetchExecuteTimer.Update(time.Since(start))
@@ -1867,15 +1867,15 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 			return it.index, err
 		}
 		// Update the metrics touched during block processing
-		accountReadTimer.Update(statedb.AccountReads)                 // Account reads are complete, we can mark them
-		storageReadTimer.Update(statedb.StorageReads)                 // Storage reads are complete, we can mark them
-		accountUpdateTimer.Update(statedb.AccountUpdates)             // Account updates are complete, we can mark them
-		storageUpdateTimer.Update(statedb.StorageUpdates)             // Storage updates are complete, we can mark them
-		snapshotAccountReadTimer.Update(statedb.SnapshotAccountReads) // Account reads are complete, we can mark them
-		snapshotStorageReadTimer.Update(statedb.SnapshotStorageReads) // Storage reads are complete, we can mark them
-		triehash := statedb.AccountHashes + statedb.StorageHashes     // Save to not double count in validation
-		trieproc := statedb.SnapshotAccountReads + statedb.AccountReads + statedb.AccountUpdates
-		trieproc += statedb.SnapshotStorageReads + statedb.StorageReads + statedb.StorageUpdates
+		accountReadTimer.Update(statedb.Metrics().AccountReads)                       // Account reads are complete, we can mark them
+		storageReadTimer.Update(statedb.Metrics().StorageReads)                       // Storage reads are complete, we can mark them
+		accountUpdateTimer.Update(statedb.Metrics().AccountUpdates)                   // Account updates are complete, we can mark them
+		storageUpdateTimer.Update(statedb.Metrics().StorageUpdates)                   // Storage updates are complete, we can mark them
+		snapshotAccountReadTimer.Update(statedb.Metrics().SnapshotAccountReads)       // Account reads are complete, we can mark them
+		snapshotStorageReadTimer.Update(statedb.Metrics().SnapshotStorageReads)       // Storage reads are complete, we can mark them
+		triehash := statedb.Metrics().AccountHashes + statedb.Metrics().StorageHashes // Save to not double count in validation
+		trieproc := statedb.Metrics().SnapshotAccountReads + statedb.Metrics().AccountReads + statedb.Metrics().AccountUpdates
+		trieproc += statedb.Metrics().SnapshotStorageReads + statedb.Metrics().StorageReads + statedb.Metrics().StorageUpdates
 
 		blockExecutionTimer.Update(time.Since(substart) - trieproc - triehash)
 
@@ -1889,10 +1889,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		proctime := time.Since(start)
 
 		// Update the metrics touched during block validation
-		accountHashTimer.Update(statedb.AccountHashes) // Account hashes are complete, we can mark them
-		storageHashTimer.Update(statedb.StorageHashes) // Storage hashes are complete, we can mark them
+		accountHashTimer.Update(statedb.Metrics().AccountHashes) // Account hashes are complete, we can mark them
+		storageHashTimer.Update(statedb.Metrics().StorageHashes) // Storage hashes are complete, we can mark them
 
-		blockValidationTimer.Update(time.Since(substart) - (statedb.AccountHashes + statedb.StorageHashes - triehash))
+		blockValidationTimer.Update(time.Since(substart) - (statedb.Metrics().AccountHashes + statedb.Metrics().StorageHashes - triehash))
 
 		// Write the block to the chain and get the status.
 		substart = time.Now()
@@ -1902,11 +1902,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 			return it.index, err
 		}
 		// Update the metrics touched during block commit
-		accountCommitTimer.Update(statedb.AccountCommits)   // Account commits are complete, we can mark them
-		storageCommitTimer.Update(statedb.StorageCommits)   // Storage commits are complete, we can mark them
-		snapshotCommitTimer.Update(statedb.SnapshotCommits) // Snapshot commits are complete, we can mark them
+		accountCommitTimer.Update(statedb.Metrics().AccountCommits)   // Account commits are complete, we can mark them
+		storageCommitTimer.Update(statedb.Metrics().StorageCommits)   // Storage commits are complete, we can mark them
+		snapshotCommitTimer.Update(statedb.Metrics().SnapshotCommits) // Snapshot commits are complete, we can mark them
 
-		blockWriteTimer.Update(time.Since(substart) - statedb.AccountCommits - statedb.StorageCommits - statedb.SnapshotCommits)
+		blockWriteTimer.Update(time.Since(substart) - statedb.Metrics().AccountCommits - statedb.Metrics().StorageCommits - statedb.Metrics().SnapshotCommits)
 		blockInsertTimer.UpdateSince(start)
 
 		switch status {

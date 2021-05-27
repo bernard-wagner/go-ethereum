@@ -67,8 +67,8 @@ type Backend interface {
 	ChainConfig() *params.ChainConfig
 	Engine() consensus.Engine
 	ChainDb() ethdb.Database
-	StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, checkLive bool) (*state.StateDB, error)
-	StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, error)
+	StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base state.StateDB, checkLive bool) (state.StateDB, error)
+	StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (core.Message, vm.BlockContext, state.StateDB, error)
 }
 
 // API is the collection of tracing APIs exposed over the private debugging endpoint.
@@ -194,7 +194,7 @@ type txTraceResult struct {
 // blockTraceTask represents a single block trace task when an entire chain is
 // being traced.
 type blockTraceTask struct {
-	statedb *state.StateDB   // Intermediate state prepped for tracing
+	statedb state.StateDB    // Intermediate state prepped for tracing
 	block   *types.Block     // Block to trace the transactions from
 	rootref common.Hash      // Trie root reference held for this task
 	results []*txTraceResult // Trace results procudes by the task
@@ -211,8 +211,8 @@ type blockTraceResult struct {
 // txTraceTask represents a single transaction trace task when an entire block
 // is being traced.
 type txTraceTask struct {
-	statedb *state.StateDB // Intermediate state prepped for tracing
-	index   int            // Transaction offset in the block
+	statedb state.StateDB // Intermediate state prepped for tracing
+	index   int           // Transaction offset in the block
 }
 
 // TraceChain returns the structured logs created during the execution of EVM
@@ -306,7 +306,7 @@ func (api *API) traceChain(ctx context.Context, start, end *types.Block, config 
 			traced  uint64
 			failed  error
 			parent  common.Hash
-			statedb *state.StateDB
+			statedb state.StateDB
 		)
 		// Ensure everything is properly cleaned up on any exit path
 		defer func() {
@@ -780,7 +780,7 @@ func (api *API) TraceCall(ctx context.Context, args ethapi.TransactionArgs, bloc
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
-func (api *API) traceTx(ctx context.Context, message core.Message, txctx *txTraceContext, vmctx vm.BlockContext, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
+func (api *API) traceTx(ctx context.Context, message core.Message, txctx *txTraceContext, vmctx vm.BlockContext, statedb state.StateDB, config *TraceConfig) (interface{}, error) {
 	// Assemble the structured logger or the JavaScript tracer
 	var (
 		tracer    vm.Tracer

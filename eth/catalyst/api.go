@@ -68,7 +68,7 @@ func newConsensusAPI(eth *eth.Ethereum) *consensusAPI {
 // a block, either when assembling it or when inserting it.
 type blockExecutionEnv struct {
 	chain   *core.BlockChain
-	state   *state.StateDB
+	state   state.StateDB
 	tcount  int
 	gasPool *core.GasPool
 
